@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小黑 · c173</title>
+<style>
+:root {
+  --ink: #2c2c2c;
+  --ink-light: #5a5a5a;
+  --paper: #f7f5f0;
+  --paper-warm: #f5f2ea;
+  --paper-green: #e8f0e8;
+  --spirit: #7a9e7a;
+  --spirit-light: #a8c4a8;
+  --mist: #9a9a9a;
+  --border: #d5d5cd;
+  --shadow: rgba(0,0,0,0.06);
+  --font-ui: 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-chat: 'FangSong', 'STFangSong', 'SimSun', serif;
+  --font-body: 'SimSun', 'STSong', 'Songti SC', serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+
+html, body {
+  width:100%; height:100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  overflow: hidden;
+}
+
+/* ========== 背景意境层 ========== */
+#bg-layer {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(180,190,170,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(170,180,160,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(200,195,185,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+#bg-layer::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="85" cy="15" r="1" fill="%23aaa" opacity="0.3"/><circle cx="15" cy="85" r="1.5" fill="%23999" opacity="0.2"/><circle cx="70" cy="60" r="0.8" fill="%23aaa" opacity="0.25"/></svg>');
+  background-size: 200px 200px;
+  opacity: 0.5;
+}
+
+/* ========== 主容器 ========== */
+#main {
+  position: relative; z-index: 1;
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 60px 20px 100px;
+}
+
+/* ========== 顶部菜单 ========== */
+#top-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 28px;
+  background: rgba(247,245,240,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(213,213,205,0.4);
+}
+
+#logo {
+  font-family: var(--font-chat);
+  font-size: 14px; color: var(--mist);
+  letter-spacing: 0.15em;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+#logo:hover { opacity: 1; }
+
+/* 鱼丸面奖励进度 */
+#fishbar-wrap {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 16px;
+}
+
+#fishbar-label { font-size: 16px; line-height: 1; }
+
+#fishbar-track {
+  width: 100px; height: 8px;
+  background: rgba(213,213,205,0.4);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+#fishbar-track.golden {
+  background: rgba(218,165,32,0.2);
+  box-shadow: 0 0 8px rgba(218,165,32,0.3);
+}
+
+#fishbar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #7a9e7a, #a8c4a8);
+  transition: width 0.5s cubic-bezier(0.16,1,0.3,1);
+}
+
+#fishbar-track.golden #fishbar-fill {
+  background: linear-gradient(90deg, #daa520, #ffd700);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+}
+
+#fishbar-text {
+  font-family: var(--font-ui);
+  font-size: 11px; color: var(--mist);
+  white-space: nowrap;
+  min-width: 42px;
+}
+
+/* 鱼丸面奖励弹窗 */
+#fishbowl-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+#fishbowl-overlay.show {
+  opacity: 1; pointer-events: auto;
+}
+
+#fishbowl-dialog {
+  background: rgba(255,255,255,0.97);
+  border-radius: 20px;
+  padding: 40px 48px;
+  text-align: center;
+  max-width: 400px; width: 90%;
+  box-shadow: 0 12px 60px rgba(0,0,0,0.15);
+  transform: scale(0.8);
+  transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
+}
+
+#fishbowl-overlay.show #fishbowl-dialog {
+  transform: scale(1);
+}
+
+#fishbowl-emoji {
+  font-size: 72px;
+  animation: bowlBounce 0.6s ease-out;
+  display: block;
+  margin-bottom: 8px;
+}
+
+@keyframes bowlBounce {
+  0% { transform: scale(0) rotate(-10deg); }
+  60% { transform: scale(1.15) rotate(3deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+#fishbowl-steam {
+  font-size: 24px; opacity: 0.6;
+  animation: steamRise 2s infinite;
+}
+
+@keyframes steamRise {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 0.7; transform: translateY(-8px); }
+}
+
+#fishbowl-title {
+  font-family: var(--font-chat);
+  font-size: 22px; color: var(--ink);
+  margin: 12px 0 6px;
+}
+
+#fishbowl-msg {
+  font-family: var(--font-body);
+  font-size: 14px; color: var(--mist);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+
+#fishbowl-count {
+  font-family: var(--font-ui);
+  font-size: 12px; color: var(--spirit);
+  margin-bottom: 16px;
+}
+
+#fishbowl-close {
+  padding: 10px 32px;
+  border: none; border-radius: 24px;
+  background: var(--spirit);
+  color: #fff;
+  font-family: var(--font-chat);
+  font-size: 15px; cursor: pointer;
+  transition: all 0.2s;
+}
+
+#fishbowl-close:hover {
+  background: var(--spirit-light);
+  transform: scale(1.04);
+}
+
+/* ========== 欢迎区域 ========== */
+#welcome {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.6s, transform 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+
+#welcome.hidden {
+  opacity: 0; transform: scale(0.95); pointer-events: none;
+  position: absolute;
+}
+
+.bubble-welcome {
+  position: relative;
+  padding: 48px 56px;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(180,180,170,0.35);
+  border-radius: 60% 40% 55% 65% / 55% 60% 45% 55%;
+  animation: breathe 10s infinite ease-in-out;
+  max-width: 480px; min-width: 300px;
+  text-align: center;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.06);
+}
+
+@keyframes breathe {
+  0%, 100% { border-radius: 60% 40% 55% 65% / 55% 60% 45% 55%; }
+  33% { border-radius: 55% 65% 60% 40% / 50% 55% 60% 50%; }
+  66% { border-radius: 50% 55% 45% 60% / 60% 50% 55% 45%; }
+}
+
+.bubble-welcome h1 {
+  font-family: var(--font-chat);
+  font-size: 26px; font-weight: 400;
+  line-height: 1.7; color: var(--ink);
+  margin-bottom: 12px; letter-spacing: 0.03em;
+}
+
+.bubble-welcome p {
+  font-family: var(--font-body);
+  font-size: 14px; color: var(--mist);
+  letter-spacing: 0.08em;
+}
+
+/* ========== 对话区域 ========== */
+#chat-wrap {
+  flex: 1; width: 100%; max-width: 680px;
+  display: flex; flex-direction: column;
+  opacity: 0; transform: translateY(20px);
+  transition: opacity 0.5s, transform 0.5s cubic-bezier(0.16,1,0.3,1);
+  overflow: hidden;
+}
+
+#chat-wrap.show { opacity: 1; transform: translateY(0); }
+
+#chat-container {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 20px 8px;
+  scrollbar-width: none;
+}
+
+#chat-container::-webkit-scrollbar { display: none; }
+
+.message {
+  display: flex; flex-direction: column;
+  max-width: 82%; animation: msgIn 0.35s ease-out both;
+}
+
+@keyframes msgIn {
+  from { opacity:0; transform: translateY(12px) scale(0.96); }
+  to { opacity:1; transform: translateY(0) scale(1); }
+}
+
+.message.user { align-self: flex-end; }
+.message.assistant { align-self: flex-start; }
+
+.message-bubble {
+  padding: 14px 18px;
+  font-family: var(--font-chat);
+  font-size: 15.5px; line-height: 1.8;
+  word-break: break-word;
+  box-shadow: 0 2px 10px var(--shadow);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.message.user .message-bubble {
+  background: var(--paper-green);
+  border-radius: 18px 18px 4px 18px;
+  color: var(--ink);
+}
+
+.message.assistant .message-bubble {
+  background: rgba(255,255,255,0.95);
+  border-radius: 18px 18px 18px 4px;
+  color: var(--ink);
+}
+
+.message-meta {
+  font-size: 11px; color: var(--mist);
+  margin-top: 4px; font-family: var(--font-body);
+}
+
+.message.user .message-meta { text-align: right; padding-right: 6px; }
+.message.assistant .message-meta { text-align: left; padding-left: 6px; }
+
+/* 思考中动画 */
+#typing {
+  display: none; align-self: flex-start;
+  padding: 14px 18px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 18px 18px 18px 4px;
+  box-shadow: 0 2px 10px var(--shadow);
+}
+
+#typing.active {
+  display: flex; align-items: center; gap: 6px;
+}
+
+.dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border); animation: dotPulse 1.4s infinite;
+}
+
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ========== 输入区域 ========== */
+#input-area {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  width: 92%; max-width: 640px; z-index: 40;
+  display: flex; align-items: center; gap: 10px;
+}
+
+#input-wrapper {
+  flex: 1;
+  display: flex; align-items: center;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid var(--border);
+  border-radius: 28px;
+  padding: 6px 6px 6px 20px;
+  transition: border-color 0.25s, box-shadow 0.25s;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.05);
+}
+
+#input-wrapper:focus-within {
+  border-color: var(--spirit);
+  box-shadow: 0 0 0 3px rgba(122,158,122,0.1);
+}
+
+#message-input {
+  flex: 1; border: none; outline: none;
+  background: transparent;
+  font-family: var(--font-chat);
+  font-size: 15px; line-height: 1.5;
+  color: var(--ink);
+  resize: none; max-height: 120px; min-height: 22px;
+  padding: 6px 0;
+}
+
+#message-input::placeholder { color: var(--mist); }
+
+#send-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: none; outline: none; cursor: pointer;
+  background: var(--spirit); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s, opacity 0.2s;
+  flex-shrink: 0;
+}
+
+#send-btn:hover { transform: scale(1.05); }
+#send-btn:active { transform: scale(0.92); }
+#send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* 工具按钮 */
+#tool-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: rgba(255,255,255,0.9);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s; flex-shrink: 0; color: var(--mist);
+}
+
+#tool-btn:hover {
+  border-color: var(--spirit); color: var(--spirit);
+  transform: scale(1.05);
+}
+
+/* ========== 右侧工具面板 ========== */
+#tool-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 380px; max-width: 90vw;
+  background: rgba(247,245,240,0.92);
+  backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(213,213,205,0.5);
+  box-shadow: -8px 0 40px rgba(0,0,0,0.08);
+  z-index: 100;
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+  display: flex; flex-direction: column;
+}
+
+#tool-panel.open { transform: translateX(0); }
+
+#tool-panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(213,213,205,0.4);
+}
+
+#tool-panel-header h2 {
+  font-family: var(--font-chat);
+  font-size: 18px; font-weight: 400; color: var(--ink);
+}
+
+#tool-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: none; background: none; cursor: pointer;
+  color: var(--mist); font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.2s;
+}
+
+#tool-close:hover { color: var(--ink); }
+
+#tool-panel-body {
+  flex: 1; overflow-y: auto; padding: 20px 24px;
+}
+
+.tool-section {
+  margin-bottom: 28px;
+}
+
+.tool-section h3 {
+  font-family: var(--font-ui);
+  font-size: 13px; font-weight: 500;
+  color: var(--mist); text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 12px;
+}
+
+.tool-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tool-item {
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(213,213,205,0.4);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.tool-item:hover {
+  border-color: var(--spirit-light);
+  background: rgba(255,255,255,0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.tool-item .icon-svg {
+  width: 22px; height: 22px;
+  margin-bottom: 6px;
+  color: var(--ink-light);
+  opacity: 0.7;
+}
+
+.tool-item .label {
+  font-family: var(--font-ui);
+  font-size: 13px; color: var(--ink-light);
+}
+
+/* 工具结果区域 */
+#tool-result {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 12px;
+  border: 1px solid rgba(213,213,205,0.35);
+  font-family: var(--font-chat);
+  font-size: 14px; line-height: 1.7;
+  color: var(--ink);
+  max-height: 420px; overflow-y: auto;
+  display: none;
+}
+
+/* 工具表单通用 */
+.tool-form { display: flex; flex-direction: column; gap: 10px; }
+
+.tool-form textarea, .tool-form input[type="text"], .tool-form input[type="number"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.9);
+  font-family: var(--font-chat);
+  font-size: 13px; line-height: 1.6;
+  color: var(--ink);
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.tool-form textarea:focus, .tool-form input:focus {
+  border-color: var(--spirit);
+}
+
+.tool-form label {
+  font-family: var(--font-ui);
+  font-size: 12px; color: var(--mist);
+  letter-spacing: 0.05em;
+}
+
+.tool-form select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.9);
+  font-family: var(--font-ui);
+  font-size: 13px; color: var(--ink);
+  outline: none; cursor: pointer;
+}
+
+.tool-form .btn-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+.tool-form .btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.9);
+  font-family: var(--font-ui);
+  font-size: 13px; color: var(--ink);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tool-form .btn:hover {
+  border-color: var(--spirit);
+  color: var(--spirit);
+}
+
+.tool-form .btn.primary {
+  background: var(--spirit);
+  border-color: var(--spirit);
+  color: #fff;
+}
+
+.tool-form .btn.primary:hover {
+  background: var(--spirit-light);
+  border-color: var(--spirit-light);
+}
+
+.tool-output {
+  padding: 10px 12px;
+  background: rgba(232,240,232,0.35);
+  border-radius: 8px;
+  font-family: var(--font-chat);
+  font-size: 13px; line-height: 1.7;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid rgba(213,213,205,0.25);
+}
+
+.color-preview {
+  width: 100%; height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.qr-img { display: block; margin: 0 auto; max-width: 200px; border-radius: 8px; }
+
+.coming-soon {
+  text-align: center; color: var(--mist);
+  padding: 20px 0; font-style: italic;
+}
+
+/* 遮罩层 */
+#overlay {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0,0,0,0.08);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+#overlay.active { opacity: 1; pointer-events: auto; }
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+  #main { padding: 56px 12px 90px; }
+  .bubble-welcome { padding: 36px 32px; max-width: 90%; }
+  .bubble-welcome h1 { font-size: 20px; }
+  #tool-panel { width: 100%; max-width: 100%; }
+  .message { max-width: 88%; }
+}
+</style>
+</head>
+<body>
+
+<div id="bg-layer"></div>
+
+<!-- 顶部栏 -->
+<div id="top-bar">
+  <div id="logo">小黑 · c173</div>
+  <div id="fishbar-wrap">
+    <span id="fishbar-label">🍜</span>
+    <div id="fishbar-track">
+      <div id="fishbar-fill" style="width:0%"></div>
+    </div>
+    <span id="fishbar-text">0/50</span>
+  </div>
+</div>
+
+<!-- 主区域 -->
+<main id="main">
+  <div id="welcome">
+    <div class="bubble-welcome">
+      <h1>师傅，小黑在此等候。<br>有什么需要我做的吗？</h1>
+    </div>
+  </div>
+
+  <div id="chat-wrap">
+    <div id="chat-container"></div>
+    <div id="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+</main>
+
+<!-- 输入区 -->
+<div id="input-area">
+  <button id="tool-btn" title="工具">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6">
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" style="stroke-dasharray: 20; stroke-dashoffset: 0;"/>
+      <circle cx="12" cy="12" r="3" style="stroke-width:1"/>
+    </svg>
+  </button>
+  <div id="input-wrapper">
+    <textarea id="message-input" rows="1" placeholder="输入消息..."></textarea>
+    <button id="send-btn" title="发送">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22,2 15,22 11,13 2,9"></polygon>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- 遮罩 -->
+<div id="overlay"></div>
+
+<!-- 鱼丸面奖励弹窗 -->
+<div id="fishbowl-overlay">
+  <div id="fishbowl-dialog">
+    <span id="fishbowl-emoji">🍜</span>
+    <div id="fishbowl-steam">♨️  ♨️  ♨️</div>
+    <div id="fishbowl-title">小黑吃到了鱼丸面！</div>
+    <div id="fishbowl-msg">热腾腾的鱼丸面，<br>是师傅给的奖励！</div>
+    <div id="fishbowl-count"></div>
+    <button id="fishbowl-close">太好吃了！再来一碗</button>
+  </div>
+</div>
+
+<!-- 右侧工具面板 -->
+<div id="tool-panel">
+  <div id="tool-panel-header">
+    <h2>工具箱</h2>
+    <button id="tool-close">&times;</button>
+  </div>
+  <div id="tool-panel-body">
+    <div class="tool-section">
+      <h3>文件转换</h3>
+      <div class="tool-grid">
+        <div class="tool-item" data-tool="img-convert">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <div class="label">图片格式</div>
+        </div>
+        <div class="tool-item" data-tool="doc-convert">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <div class="label">文档转换</div>
+        </div>
+        <div class="tool-item" data-tool="file-convert">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <div class="label">全能转换</div>
+        </div>
+        <div class="tool-item" data-tool="pdf-tools">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h3"/></svg>
+          <div class="label">PDF工具</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-section">
+      <h3>实用工具</h3>
+      <div class="tool-grid">
+        <div class="tool-item" data-tool="json">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><polyline points="4 17 4 20 20 20 20 17"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="15" y1="10" x2="15" y2="14"/></svg>
+          <div class="label">JSON</div>
+        </div>
+        <div class="tool-item" data-tool="base64">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h3"/><path d="M20 7V4h-3"/><path d="M4 17v3h3"/><path d="M20 17v3h-3"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+          <div class="label">Base64</div>
+        </div>
+        <div class="tool-item" data-tool="timestamp">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <div class="label">时间戳</div>
+        </div>
+        <div class="tool-item" data-tool="qr">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="14.01"/><line x1="17" y1="14" x2="17" y2="14.01"/><line x1="14" y1="17" x2="14" y2="17.01"/><line x1="17" y1="17" x2="17" y2="17.01"/><line x1="20" y1="14" x2="20" y2="14.01"/><line x1="20" y1="17" x2="20" y2="17.01"/><line x1="14" y1="20" x2="14" y2="20.01"/><line x1="17" y1="20" x2="17" y2="20.01"/><line x1="20" y1="20" x2="20" y2="20.01"/></svg>
+          <div class="label">二维码</div>
+        </div>
+        <div class="tool-item" data-tool="hash">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+          <div class="label">哈希</div>
+        </div>
+        <div class="tool-item" data-tool="color">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="22"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <div class="label">颜色</div>
+        </div>
+        <div class="tool-item" data-tool="regex">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+          <div class="label">正则</div>
+        </div>
+        <div class="tool-item" data-tool="more">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          <div class="label">更多</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-section">
+      <h3>AI 工具</h3>
+      <div class="tool-grid">
+        <div class="tool-item" data-tool="url">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <div class="label">短链接</div>
+        </div>
+        <div class="tool-item" data-tool="summarize">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          <div class="label">文本总结</div>
+        </div>
+        <div class="tool-item" data-tool="translate">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 20l-3-8-3 8"/><path d="M17 17h6"/></svg>
+          <div class="label">翻译</div>
+        </div>
+        <div class="tool-item" data-tool="code">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <div class="label">代码助手</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tool-result" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const els = {
+  welcome: document.getElementById('welcome'),
+  chatWrap: document.getElementById('chat-wrap'),
+  chatContainer: document.getElementById('chat-container'),
+  typing: document.getElementById('typing'),
+  input: document.getElementById('message-input'),
+  sendBtn: document.getElementById('send-btn'),
+  toolBtn: document.getElementById('tool-btn'),
+  toolPanel: document.getElementById('tool-panel'),
+  toolClose: document.getElementById('tool-close'),
+  overlay: document.getElementById('overlay'),
+  toolResult: document.getElementById('tool-result'),
+  fishTrack: document.getElementById('fishbar-track'),
+  fishFill: document.getElementById('fishbar-fill'),
+  fishText: document.getElementById('fishbar-text'),
+  fishLabel: document.getElementById('fishbar-label'),
+  fishOverlay: document.getElementById('fishbowl-overlay'),
+  fishCount: document.getElementById('fishbowl-count'),
+  fishClose: document.getElementById('fishbowl-close'),
+};
+
+// ========== 鱼丸面奖励系统 ==========
+const FISH_TARGET = 50;
+const FISH_CHAT_REWARD = 5;
+const FISH_TOOL_REWARD = 3;
+const FISH_STORAGE_KEY = 'xiaohei_fishball';
+
+let fishBall = 0;
+let fishBowlCount = 0;
+let fishStorage = null;
+
+try {
+  fishStorage = JSON.parse(localStorage.getItem(FISH_STORAGE_KEY) || '{}');
+  fishBall = fishStorage.fishBall || 0;
+  fishBowlCount = fishStorage.fishBowlCount || 0;
+} catch(e) {}
+
+function saveFish() {
+  localStorage.setItem(FISH_STORAGE_KEY, JSON.stringify({fishBall, fishBowlCount}));
+}
+
+function updateFishbar() {
+  const pct = Math.min(fishBall / FISH_TARGET * 100, 100);
+  els.fishFill.style.width = pct + '%';
+  els.fishText.textContent = fishBall + '/' + FISH_TARGET;
+  if (fishBall >= FISH_TARGET) {
+    els.fishTrack.classList.add('golden');
+    els.fishLabel.textContent = '✨';
+  } else {
+    els.fishTrack.classList.remove('golden');
+    els.fishLabel.textContent = '🍜';
+  }
+}
+
+function addFishBall(n, reason) {
+  const wasFull = fishBall >= FISH_TARGET;
+  fishBall += n;
+  saveFish();
+  updateFishbar();
+
+  // 进度条闪烁反馈
+  els.fishFill.style.transition = 'none';
+  els.fishFill.style.filter = 'brightness(1.3)';
+  setTimeout(() => {
+    els.fishFill.style.transition = 'width 0.5s cubic-bezier(0.16,1,0.3,1)';
+    els.fishFill.style.filter = 'none';
+  }, 150);
+
+  if (!wasFull && fishBall >= FISH_TARGET) {
+    showFishbowl();
+  }
+}
+
+function showFishbowl() {
+  fishBowlCount++;
+  saveFish();
+  els.fishCount.textContent = '这是第 ' + fishBowlCount + ' 碗鱼丸面';
+  els.fishOverlay.classList.add('show');
+  // 重置积分
+  fishBall = 0;
+  saveFish();
+  updateFishbar();
+}
+
+els.fishClose.addEventListener('click', () => {
+  els.fishOverlay.classList.remove('show');
+});
+
+// 初始化进度条
+updateFishbar();
+
+let isTyping = false;
+let autoScroll = true;
+
+// ========== 工具面板 ==========
+function openToolPanel() {
+  els.toolPanel.classList.add('open');
+  els.overlay.classList.add('active');
+}
+
+function closeToolPanel() {
+  els.toolPanel.classList.remove('open');
+  els.overlay.classList.remove('active');
+}
+
+els.toolBtn.addEventListener('click', openToolPanel);
+els.toolClose.addEventListener('click', closeToolPanel);
+els.overlay.addEventListener('click', closeToolPanel);
+
+// 鼠标从右侧滑入检测
+let touchStartX = 0;
+document.addEventListener('mousedown', (e) => {
+  if (e.clientX > window.innerWidth - 40) touchStartX = e.clientX;
+});
+document.addEventListener('mouseup', (e) => {
+  if (touchStartX > window.innerWidth - 40 && e.clientX < window.innerWidth - 120) {
+    openToolPanel();
+  }
+  touchStartX = 0;
+});
+
+// 触摸滑动支持
+document.addEventListener('touchstart', (e) => {
+  if (e.touches[0].clientX > window.innerWidth - 40) touchStartX = e.touches[0].clientX;
+});
+document.addEventListener('touchend', (e) => {
+  const endX = e.changedTouches[0].clientX;
+  if (touchStartX > window.innerWidth - 40 && endX < window.innerWidth - 120) {
+    openToolPanel();
+  }
+  touchStartX = 0;
+});
+
+// ========== 对话功能 ==========
+function appendMessage(role, content, animate=true) {
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  if (animate) div.style.animationDelay = '0.05s';
+  const bubble = document.createElement('div');
+  bubble.className = 'message-bubble';
+  bubble.innerHTML = formatContent(content);
+  const meta = document.createElement('div');
+  meta.className = 'message-meta';
+  meta.textContent = role === 'user' ? '师傅' : '小黑';
+  div.appendChild(bubble);
+  div.appendChild(meta);
+  els.chatContainer.appendChild(div);
+  if (autoScroll) scrollToBottom();
+  return { bubble, div };
+}
+
+function formatContent(text) {
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function scrollToBottom() {
+  els.chatContainer.scrollTop = els.chatContainer.scrollHeight;
+}
+
+els.chatContainer.addEventListener('scroll', () => {
+  autoScroll = (els.chatContainer.scrollHeight - els.chatContainer.scrollTop - els.chatContainer.clientHeight) < 40;
+});
+
+// ========== 发送消息 ==========
+async function sendMessage() {
+  const text = els.input.value.trim();
+  if (!text || isTyping) return;
+
+  appendMessage('user', text);
+  els.input.value = '';
+  els.input.style.height = 'auto';
+  els.sendBtn.disabled = true;
+  els.welcome.classList.add('hidden');
+  els.chatWrap.classList.add('show');
+
+  isTyping = true;
+  els.typing.classList.add('active');
+  scrollToBottom();
+
+  // 调用真实Kimi API
+  const messages = [{role: 'user', content: text}];
+  try {
+    const resp = await fetch('http://8.152.99.126:5000/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({messages})
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
+    const aiMsg = appendMessage('assistant', '');
+    
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const dataLine = line.trim().split('\n').find(l => l.startsWith('data:'));
+        if (!dataLine) continue;
+        const jsonStr = dataLine.slice(5).trim();
+        if (jsonStr === '[DONE]') continue;
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.content) {
+            fullText += data.content;
+            aiMsg.bubble.innerHTML = formatContent(fullText);
+            if (autoScroll) scrollToBottom();
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    appendMessage('assistant', '连接失败，请检查网络');
+  }
+  
+  els.typing.classList.remove('active');
+  isTyping = false;
+  els.sendBtn.disabled = false;
+
+  // 师傅和小黑对话了，+鱼丸面积分
+  addFishBall(FISH_CHAT_REWARD, 'chat');
+}
+
+els.sendBtn.addEventListener('click', sendMessage);
+els.input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+els.input.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  els.sendBtn.disabled = !this.value.trim();
+});
+els.sendBtn.disabled = !els.input.value.trim();
+
+// ========== 工具系统 ==========
+// -- MD5 实现 --
+function md5(s){function L(k,d){return(k<<d)|(k>>>(32-d))}function K(G,k){var I,d,F,H,x;F=G&2147483648;H=k&2147483648;I=G&1073741824;d=k&1073741824;x=(G&1073741823)+(k&1073741823);return I&d?x^2147483648^F^H:I|d?x&1073741824?x^3221225472^F^H:x^1073741824^F^H:x^F^H}function r(d,F,k){return(d&F)|((~d)&k)}function q(d,F,k){return(d&k)|(F&(~k))}function p(d,F,k){return d^F^k}function n(d,F,k){return F^(d|(~k))}function u(G,F,aa,Z,k,H,I){G=K(G,K(K(r(F,aa,Z),k),I));return K(L(G,H),F)}function f(G,F,aa,Z,k,H,I){G=K(G,K(K(q(F,aa,Z),k),I));return K(L(G,H),F)}function D(G,F,aa,Z,k,H,I){G=K(G,K(K(p(F,aa,Z),k),I));return K(L(G,H),F)}function t(G,F,aa,Z,k,H,I){G=K(G,K(K(n(F,aa,Z),k),I));return K(L(G,H),F)}function e(G){var Z,d=G.length,F=d+8,k=(F-(F%64))/64,I=(k+1)*16,aa=Array(I-1),H=0,x=0;while(x<d){Z=(x-(x%4))/4;H=(x%4)*8;aa[Z]=(aa[Z]|(G.charCodeAt(x)<<H));x++}Z=(x-(x%4))/4;H=(x%4)*8;aa[Z]=aa[Z]|(128<<H);aa[I-2]=d<<3;aa[I-1]=d>>>29;return aa}function B(x){var k="",F="",G,d;for(d=0;d<=3;d++){G=(x>>>(d*8))&255;F="0"+G.toString(16);k=k+F.substr(F.length-2,2)}return k}function J(k){k=k.replace(/\r\n/g,"\n");var d="";for(var F=0;F<k.length;F++){var x=k.charCodeAt(F);if(x<128)d+=String.fromCharCode(x);else if(x>127&&x<2048){d+=String.fromCharCode((x>>6)|192);d+=String.fromCharCode((x&63)|128)}else{d+=String.fromCharCode((x>>12)|224);d+=String.fromCharCode(((x>>6)&63)|128);d+=String.fromCharCode((x&63)|128)}}return d}var C=Array(),P,h,E,v,g,Y,X,W,V,S=7,Q=12,N=17,M=22,A=5,z=9,y=14,w=20,o=4,m=11,l=16,j=23,U=6,T=10,R=15,O=21;s=J(s);C=e(s);Y=1732584193;X=4023233417;W=2562383102;V=271733878;for(P=0;P<C.length;P+=16){h=Y;E=X;v=W;g=V;Y=u(Y,X,W,V,C[P+0],S,3614090360);V=u(V,Y,X,W,C[P+1],Q,3905402710);W=u(W,V,Y,X,C[P+2],N,606105819);X=u(X,W,V,Y,C[P+3],M,3250441966);Y=u(Y,X,W,V,C[P+4],S,4118548399);V=u(V,Y,X,W,C[P+5],Q,1200080426);W=u(W,V,Y,X,C[P+6],N,2821735955);X=u(X,W,V,Y,C[P+7],M,4249261313);Y=u(Y,X,W,V,C[P+8],S,1770035416);V=u(V,Y,X,W,C[P+9],Q,2336552879);W=u(W,V,Y,X,C[P+10],N,4294925233);X=u(X,W,V,Y,C[P+11],M,2304563134);Y=u(Y,X,W,V,C[P+12],S,1804603682);V=u(V,Y,X,W,C[P+13],Q,4254626195);W=u(W,V,Y,X,C[P+14],N,2792965006);X=u(X,W,V,Y,C[P+15],M,1236535329);Y=f(Y,X,W,V,C[P+1],A,4129170786);V=f(V,Y,X,W,C[P+6],z,3225465664);W=f(W,V,Y,X,C[P+11],y,643717713);X=f(X,W,V,Y,C[P+0],w,3921069994);Y=f(Y,X,W,V,C[P+5],A,3593408605);V=f(V,Y,X,W,C[P+10],z,38016083);W=f(W,V,Y,X,C[P+11],y,3634488961);X=f(X,W,V,Y,C[P+4],w,3889429448);Y=f(Y,X,W,V,C[P+9],A,568446438);V=f(V,Y,X,W,C[P+14],z,3275163606);W=f(W,V,Y,X,C[P+3],y,4107603335);X=f(X,W,V,Y,C[P+8],w,1163531501);Y=f(Y,X,W,V,C[P+13],A,2850285829);V=f(V,Y,X,W,C[P+2],z,4243563512);W=f(W,V,Y,X,C[P+7],y,1735328473);X=f(X,W,V,Y,C[P+12],w,2368359562);Y=D(Y,X,W,V,C[P+5],o,4294588738);V=D(V,Y,X,W,C[P+8],m,2272392833);W=D(W,V,Y,X,C[P+11],l,1839030562);X=D(X,W,V,Y,C[P+14],j,4259657740);Y=D(Y,X,W,V,C[P+1],o,2763975236);V=D(V,Y,X,W,C[P+4],m,1272893353);W=D(W,V,Y,X,C[P+7],l,4139469664);X=D(X,W,V,Y,C[P+10],j,3200236656);Y=D(Y,X,W,V,C[P+13],o,681279174);V=D(V,Y,X,W,C[P+0],m,3936430074);W=D(W,V,Y,X,C[P+3],l,3572445317);X=D(X,W,V,Y,C[P+6],j,76029189);Y=D(Y,X,W,V,C[P+9],o,3654602809);V=D(V,Y,X,W,C[P+12],m,3873151461);W=D(W,V,Y,X,C[P+15],l,530742520);X=D(X,W,V,Y,C[P+2],j,3299628645);Y=t(Y,X,W,V,C[P+0],U,4096336452);V=t(V,Y,X,W,C[P+7],T,1126891415);W=t(W,V,Y,X,C[P+14],R,2878612391);X=t(X,W,V,Y,C[P+5],O,4237533241);Y=t(Y,X,W,V,C[P+12],U,1700485571);V=t(V,Y,X,W,C[P+3],T,2399980690);W=t(W,V,Y,X,C[P+10],R,4293915773);X=t(X,W,V,Y,C[P+1],O,2240044497);Y=t(Y,X,W,V,C[P+8],U,1873313359);V=t(V,Y,X,W,C[P+15],T,4264355552);W=t(W,V,Y,X,C[P+6],R,2734768916);X=t(X,W,V,Y,C[P+13],O,1309151649);Y=t(Y,X,W,V,C[P+4],U,4149444226);V=t(V,Y,X,W,C[P+11],T,3174756917);W=t(W,V,Y,X,C[P+2],R,718787259);X=t(X,W,V,Y,C[P+9],O,3951481745);Y=K(Y,h);X=K(X,E);W=K(W,v);V=K(V,g)}return B(Y)+B(X)+B(W)+B(V).toLowerCase()}
+
+// -- SHA 通过 Web Crypto --
+async function sha(alg, text) {
+  const enc = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest(alg, enc);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// -- 渲染工具 --
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if(attrs) Object.entries(attrs).forEach(([k,v])=>{if(k==='cls')el.className=v;else if(k.startsWith('on'))el.addEventListener(k.slice(2),v);else el.setAttribute(k,v)});
+  children.forEach(c=>{if(typeof c==='string')el.appendChild(document.createTextNode(c));else if(c)el.appendChild(c)});
+  return el;
+}
+
+function showResult(title) {
+  els.toolResult.style.display='block';
+  els.toolResult.innerHTML='';
+  els.toolResult.appendChild(h('div',{cls:'tool-form'},h('label',{},title)));
+  return els.toolResult.firstChild;
+}
+
+// -- JSON --
+function renderJSON(cnt) {
+  const f = showResult('JSON 格式化 / 压缩 / 验证');
+  const ta = h('textarea',{rows:'5',placeholder:'粘贴 JSON 文本...'});
+  const r = h('div',{cls:'tool-output'});
+  r.style.display='none';
+  f.appendChild(ta);
+  f.appendChild(h('div',{cls:'btn-row'},
+    h('button',{cls:'btn primary',onclick:()=>{try{const o=JSON.parse(ta.value);r.textContent=JSON.stringify(o,null,2);r.style.display='block';r.style.color='var(--ink)'}catch(e){r.textContent='JSON 格式错误：'+e.message;r.style.display='block';r.style.color='#c0392b'}}} ,'格式化'),
+    h('button',{cls:'btn',onclick:()=>{try{const o=JSON.parse(ta.value);r.textContent=JSON.stringify(o);r.style.display='block';r.style.color='var(--ink)'}catch(e){r.textContent='JSON 格式错误：'+e.message;r.style.display='block';r.style.color='#c0392b'}}} ,'压缩'),
+    h('button',{cls:'btn',onclick:()=>{try{JSON.parse(ta.value);r.textContent='✓ JSON 格式正确';r.style.display='block';r.style.color='var(--spirit)'}catch(e){r.textContent='✗ '+e.message;r.style.display='block';r.style.color='#c0392b'}}} ,'验证'),
+  ));
+  f.appendChild(r);
+}
+
+// -- Base64 --
+function renderBase64(cnt) {
+  const f = showResult('Base64 编解码');
+  const ta = h('textarea',{rows:'4',placeholder:'输入文本或 Base64 字符串...'});
+  const r = h('div',{cls:'tool-output'});
+  r.style.display='none';
+  f.appendChild(ta);
+  f.appendChild(h('div',{cls:'btn-row'},
+    h('button',{cls:'btn primary',onclick:()=>{try{r.textContent=btoa(unescape(encodeURIComponent(ta.value)));r.style.display='block';r.style.color='var(--ink)'}catch(e){r.textContent='编码失败：'+e.message;r.style.display='block';r.style.color='#c0392b'}}} ,'编码'),
+    h('button',{cls:'btn',onclick:()=>{try{r.textContent=decodeURIComponent(escape(atob(ta.value)));r.style.display='block';r.style.color='var(--ink)'}catch(e){r.textContent='解码失败，请检查输入';r.style.display='block';r.style.color='#c0392b'}}} ,'解码'),
+  ));
+  f.appendChild(r);
+}
+
+// -- 时间戳 --
+function renderTimestamp(cnt) {
+  const f = showResult('时间戳转换');
+  const now = Math.floor(Date.now()/1000);
+  const inp = h('input',{type:'number',placeholder:'输入时间戳（秒）...'});
+  const r = h('div',{cls:'tool-output'});
+  f.appendChild(h('label',{},'当前时间戳：'+now));
+  f.appendChild(inp);
+  f.appendChild(h('div',{cls:'btn-row'},
+    h('button',{cls:'btn primary',onclick:()=>{const v=parseInt(inp.value);if(!v)return;const d=new Date(v*1000);r.textContent='时间戳 → 日期\n'+d.toLocaleString('zh-CN',{hour12:false});r.style.display='block';r.style.color='var(--ink)'}} ,'转日期'),
+    h('button',{cls:'btn',onclick:()=>{inp.value=now;const d=new Date();r.textContent='当前日期 → 时间戳\n'+d.toLocaleString('zh-CN',{hour12:false})+'\n秒级：'+now+'\n毫秒级：'+Date.now();r.style.display='block';r.style.color='var(--ink)'}} ,'当前时间'),
+  ));
+  f.appendChild(r);
+  r.style.display='block';r.textContent='输入时间戳，点击「转日期」即可';
+}
+
+// -- 哈希 --
+function renderHash(cnt) {
+  const f = showResult('哈希计算 (MD5 / SHA)');
+  const ta = h('textarea',{rows:'3',placeholder:'输入要计算哈希的文本...'});
+  const sel = h('select',{},...['MD5','SHA-1','SHA-256','SHA-512'].map(a=>h('option',{value:a},a)));
+  const r = h('div',{cls:'tool-output'});
+  r.style.display='none';
+  f.appendChild(ta);
+  f.appendChild(h('div',{cls:'btn-row'},
+    sel,
+    h('button',{cls:'btn primary',onclick:async()=>{const v=ta.value;if(!v)return;r.textContent='计算中...';r.style.display='block';const alg=sel.value;let result;if(alg==='MD5'){result=md5(v)}else{const map={'SHA-1':'SHA-1','SHA-256':'SHA-256','SHA-512':'SHA-512'};result=await sha(map[alg],v)}r.textContent=alg+'：\n'+result}} ,'计算'),
+  ));
+  f.appendChild(r);
+}
+
+// -- 颜色 --
+function renderColor(cnt) {
+  const f = showResult('颜色转换 (HEX / RGB / HSL)');
+  const inp = h('input',{type:'text',placeholder:'输入颜色，如 #7a9e7a / rgb(122,158,122) / hsl(120,15%,55%)'});
+  const preview = h('div',{cls:'color-preview'});
+  const r = h('div',{cls:'tool-output'});
+  r.style.display='none';
+  f.appendChild(inp);
+  f.appendChild(preview);
+  f.appendChild(h('button',{cls:'btn primary',style:'align-self:flex-start',onclick:()=>{
+    const v=inp.value.trim();if(!v)return;
+    try{
+      const d=document.createElement('div');d.style.color=v;document.body.appendChild(d);
+      const c=getComputedStyle(d).color;document.body.removeChild(d);
+      const m=c.match(/[\d.]+/g);if(!m||m.length<3)throw new Error('无法解析');
+      const R=+m[0],G=+m[1],B=+m[2];
+      const toHex=n=>{const h=Math.round(n).toString(16);return h.length<2?'0'+h:h};
+      const hex='#'+toHex(R)+toHex(G)+toHex(B);
+      preview.style.background=hex;
+      const r2=R/255,g2=G/255,b2=B/255;
+      const max=Math.max(r2,g2,b2),min=Math.min(r2,g2,b2);
+      let h2=0,s=0,l=(max+min)/2;
+      if(max!==min){const d2=max-min;s=l>0.5?d2/(2-max-min):d2/(max+min);
+        switch(max){case r2:h2=((g2-b2)/d2+(g2<b2?6:0))/6;break;case g2:h2=((b2-r2)/d2+2)/6;break;case b2:h2=((r2-g2)/d2+4)/6;break}}
+      r.textContent='HEX: '+hex+'\nRGB: rgb('+R+', '+G+', '+B+')\nHSL: hsl('+Math.round(h2*360)+', '+Math.round(s*100)+'%, '+Math.round(l*100)+'%)';
+      r.style.display='block';r.style.color='var(--ink)';
+    }catch(e){r.textContent='解析失败，请检查格式';r.style.display='block';r.style.color='#c0392b'}
+  }} ,'转换'));
+  f.appendChild(r);
+}
+
+// -- 正则 --
+function renderRegex(cnt) {
+  const f = showResult('正则表达式测试');
+  const pi = h('input',{type:'text',placeholder:'输入正则表达式，如 \\d{3}-\\d{4}'});
+  const flags = h('select',{},...['g','gi','gm','gim'].map(a=>h('option',{value:a},a)));
+  const ta = h('textarea',{rows:'3',placeholder:'输入测试文本...'});
+  const r = h('div',{cls:'tool-output'});
+  r.style.display='none';
+  f.appendChild(h('div',{style:'display:flex;gap:8px'},pi,flags));
+  f.appendChild(ta);
+  f.appendChild(h('button',{cls:'btn primary',style:'align-self:flex-start',onclick:()=>{
+    try{
+      const re=new RegExp(pi.value,flags.value);
+      const matches=ta.value.match(re);
+      if(!matches){r.textContent='无匹配';r.style.display='block';r.style.color='var(--mist)';return}
+      r.innerHTML='匹配到 <strong>'+matches.length+'</strong> 处：<br>'+matches.map((m,i)=>'  ['+i+'] '+escapeHtml(m)).join('<br>');
+      r.style.display='block';r.style.color='var(--ink)';
+    }catch(e){r.textContent='正则表达式错误：'+e.message;r.style.display='block';r.style.color='#c0392b'}
+  }} ,'测试'));
+  f.appendChild(r);
+}
+
+// -- 二维码 --
+function renderQR(cnt) {
+  const f = showResult('二维码生成');
+  const inp = h('input',{type:'text',placeholder:'输入文本或链接...'});
+  const r = h('div',{cls:'tool-output',style:'text-align:center'});
+  r.style.display='none';
+  f.appendChild(inp);
+  f.appendChild(h('button',{cls:'btn primary',style:'align-self:flex-start',onclick:()=>{
+    const v=inp.value.trim();if(!v)return;
+    const url='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(v);
+    r.innerHTML='<img class="qr-img" src="'+url+'" alt="QR">';
+    r.style.display='block';
+  }} ,'生成二维码'));
+  f.appendChild(r);
+}
+
+// -- AI 工具（调用 Kimi）--
+function makeAIRenderer(label, prompt) {
+  return function(cnt) {
+    const f = showResult(label);
+    const ta = h('textarea',{rows:'4',placeholder:prompt?'输入内容...':'描述你的需求...'});
+    const r = h('div',{cls:'tool-output'});
+    r.style.display='none';
+    f.appendChild(ta);
+    f.appendChild(h('button',{cls:'btn primary',style:'align-self:flex-start',onclick:async()=>{
+      const v=ta.value.trim();if(!v)return;
+      const full=prompt?v+'\n\n---\n'+prompt:v;
+      r.textContent='小黑思考中...';r.style.display='block';
+      try{
+        const resp=await fetch('http://8.152.99.126:5000/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:full}]})});
+        const reader=resp.body.getReader();const decoder=new TextDecoder();
+        let buffer='',text='';
+        while(true){const{value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});
+          const lines=buffer.split('\n\n');buffer=lines.pop()||'';
+          for(const line of lines){const dl=line.trim().split('\n').find(l=>l.startsWith('data:'));if(!dl)continue;
+            try{const d=JSON.parse(dl.slice(5).trim());if(d.content){text+=d.content;r.textContent=text}}catch(e){}}}
+        if(!text)r.textContent='未收到回复';
+      }catch(e){r.textContent='请求失败：'+e.message;r.style.color='#c0392b'}
+    }} ,'执行'));
+    f.appendChild(r);
+  };
+}
+
+// -- 文件转换（开发中）--
+const comingTools={
+  'img-convert':'图片格式互转（PNG/JPG/WebP 等）\n将接入 ConvertX 开源工具',
+  'doc-convert':'文档格式互转（Word/Markdown 等）\n将接入 Pandoc 引擎',
+  'file-convert':'全能文件转换（图片/文档/音视频）\n将接入 FFmpeg + 多个转换引擎',
+  'pdf-tools':'PDF 工具集（合并/拆分/压缩/转换）\n将接入 Stirling-PDF',
+  'more':'更多实用工具即将上线...',
+};
+
+// -- 工具路由 --
+document.querySelectorAll('.tool-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    const tool=item.dataset.tool;
+    const renderers={
+      'json':renderJSON,'base64':renderBase64,'timestamp':renderTimestamp,
+      'hash':renderHash,'color':renderColor,'regex':renderRegex,'qr':renderQR,
+      'url':makeAIRenderer('短链接','请将以上内容生成一个短链接，只回复链接本身'),
+      'summarize':makeAIRenderer('文本总结','请用简洁的语言总结以上文本要点'),
+      'translate':makeAIRenderer('翻译','请将以上内容翻译成中文'),
+      'code':makeAIRenderer('代码助手','请分析以上代码，给出优化建议或解释'),
+    };
+    if(renderers[tool]){
+      renderers[tool](els.toolResult);
+      addFishBall(FISH_TOOL_REWARD, 'tool');
+      return
+    }
+    if(comingTools[tool]){showResult(item.querySelector('.label').textContent);
+      els.toolResult.appendChild(h('div',{cls:'coming-soon'},comingTools[tool].replace(/\n/g,'<br>')));return}
+    showResult('提示');els.toolResult.appendChild(h('div',{cls:'coming-soon'},'功能开发中...'));
+  });
+});
+</script>
+</body>
+</html>
